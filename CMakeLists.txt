@@ -1,0 +1,46 @@
+cmake_minimum_required(VERSION 3.28)
+project(bstar_bisect LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 26)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
+endif()
+
+option(BS_NATIVE "Build with -march=native" ON)
+
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(FLINT REQUIRED flint)
+find_package(OpenMP REQUIRED)
+
+set(BS_WARN_FLAGS -Wall -Wextra -Wpedantic)
+set(BS_OPT_FLAGS -O3 -flto=auto)
+
+add_library(bmath STATIC src/bmath.cpp)
+target_include_directories(bmath PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(bmath PRIVATE ${FLINT_INCLUDE_DIRS})
+target_link_directories(bmath PUBLIC ${FLINT_LIBRARY_DIRS})
+target_link_libraries(bmath PUBLIC ${FLINT_LIBRARIES} OpenMP::OpenMP_CXX)
+target_compile_options(bmath PRIVATE ${BS_WARN_FLAGS} ${BS_OPT_FLAGS})
+if(BS_NATIVE)
+  target_compile_options(bmath PRIVATE -march=native)
+endif()
+
+add_executable(bstar_bisect src/main.cpp)
+target_link_libraries(bstar_bisect PRIVATE bmath)
+target_compile_options(bstar_bisect PRIVATE ${BS_OPT_FLAGS})
+if(BS_NATIVE)
+  target_compile_options(bstar_bisect PRIVATE -march=native)
+endif()
+
+enable_testing()
+add_executable(test_bmath tests/test_bmath.cpp)
+target_link_libraries(test_bmath PRIVATE bmath)
+target_compile_options(test_bmath PRIVATE ${BS_OPT_FLAGS})
+if(BS_NATIVE)
+  target_compile_options(test_bmath PRIVATE -march=native)
+endif()
+add_test(NAME test_bmath COMMAND test_bmath)
+set_tests_properties(test_bmath PROPERTIES TIMEOUT 3600 LABELS "rigorous")
